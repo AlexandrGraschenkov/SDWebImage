@@ -350,11 +350,9 @@ didReceiveResponse:(NSURLResponse *)response
                     image = scaledImage;
                 }
                 CGImageRelease(partialImageRef);
-                dispatch_main_sync_safe(^{
-                    if (self.completedBlock) {
-                        self.completedBlock(image, nil, nil, NO);
-                    }
-                });
+                if (self.completedBlock) {
+                    self.completedBlock(image, nil, nil, NO);
+                }
             }
         }
 
@@ -412,20 +410,27 @@ didReceiveResponse:(NSURLResponse *)response
             if (self.options & SDWebImageDownloaderIgnoreCachedResponse && responseFromCached) {
                 completionBlock(nil, nil, nil, YES);
             } else if (self.imageData) {
-                UIImage *image = [UIImage sd_imageWithData:self.imageData];
-                NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
-                image = [self scaledImageForKey:key image:image];
+                UIImage *image = nil;
                 
-                // Do not force decoding animated GIFs
-                if (!image.images) {
-                    if (self.shouldDecompressImages) {
-                        image = [UIImage decodedImageWithImage:image];
+                if (!(self.options & SDWebImageDownloaderResultOnlyData)) {
+                    image = [UIImage sd_imageWithData:self.imageData];
+                    NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
+                    image = [self scaledImageForKey:key image:image];
+                    
+                    // Do not force decoding animated GIFs
+                    if (!image.images) {
+                        if (self.shouldDecompressImages) {
+                            image = [UIImage decodedImageWithImage:image];
+                        }
+                    }
+                    
+                    if (CGSizeEqualToSize(image.size, CGSizeZero)) {
+                        completionBlock(nil, nil, [NSError errorWithDomain:SDWebImageErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Downloaded image has 0 pixels"}], YES);
+                        completionBlock = nil;
                     }
                 }
-                if (CGSizeEqualToSize(image.size, CGSizeZero)) {
-                    completionBlock(nil, nil, [NSError errorWithDomain:SDWebImageErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Downloaded image has 0 pixels"}], YES);
-                }
-                else {
+                
+                if (completionBlock) {
                     completionBlock(image, self.imageData, nil, YES);
                 }
             } else {

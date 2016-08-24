@@ -9,6 +9,7 @@
 #import "MasterViewController.h"
 #import <SDWebImage/UIImageView+WebCache.h>
 #import "DetailViewController.h"
+#import <FLAnimatedImage/FLAnimatedImage.h>
 
 @interface MasterViewController () {
     NSMutableArray *_objects;
@@ -52,6 +53,12 @@
     return self;
 }
 
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    [self.tableView registerNib:[UINib nibWithNibName:@"Cell" bundle:nil] forCellReuseIdentifier:@"Cell"];
+}
+
 - (void)flushCache
 {
     [SDWebImageManager.sharedManager.imageCache clearMemory];
@@ -80,18 +87,30 @@
     static NSString *CellIdentifier = @"Cell";
     
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
-    if (cell == nil)
-    {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
+    
+    UIImageView *imgView = [cell viewWithTag:1];
+
+    [imgView setShowActivityIndicatorView:YES];
+    [imgView setIndicatorStyle:UIActivityIndicatorViewStyleGray];
+
+    UILabel *label = (id)[cell viewWithTag:2];
+    label.text = [NSString stringWithFormat:@"Image #%ld", (long)indexPath.row];
+    imgView.contentMode = UIViewContentModeScaleAspectFill;
+    SDWebImageOptions options = indexPath.row == 0 ? SDWebImageRefreshCached : 0;
+    BOOL isGif = [[_objects objectAtIndex:indexPath.row] hasSuffix:@"gif"];
+    if (isGif) {
+        options |= SDWebImageNSDataResult;
     }
-
-    [cell.imageView setShowActivityIndicatorView:YES];
-    [cell.imageView setIndicatorStyle:UIActivityIndicatorViewStyleGray];
-
-    cell.textLabel.text = [NSString stringWithFormat:@"Image #%ld", (long)indexPath.row];
-    cell.imageView.contentMode = UIViewContentModeScaleAspectFill;
-    [cell.imageView sd_setImageWithURL:[NSURL URLWithString:[_objects objectAtIndex:indexPath.row]]
-                      placeholderImage:[UIImage imageNamed:@"placeholder"] options:indexPath.row == 0 ? SDWebImageRefreshCached : 0];
+    
+    __weak FLAnimatedImageView *wImgView = (id)imgView;
+    [imgView sd_setImageWithURL:[NSURL URLWithString:[_objects objectAtIndex:indexPath.row]]
+                      placeholderImage:[UIImage imageNamed:@"placeholder"] options:options completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL)
+     {
+         if (isGif) {
+             FLAnimatedImage *img = [FLAnimatedImage animatedImageWithGIFData:(id)image];
+             wImgView.animatedImage = img;
+         }
+     }];
     return cell;
 }
 

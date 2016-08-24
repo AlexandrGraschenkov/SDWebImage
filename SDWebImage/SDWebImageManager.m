@@ -151,7 +151,8 @@
     }
     NSString *key = [self cacheKeyForURL:url];
 
-    operation.cacheOperation = [self.imageCache queryDiskCacheForKey:key done:^(UIImage *image, SDImageCacheType cacheType) {
+    BOOL resultData = options & SDWebImageNSDataResult;
+    operation.cacheOperation = [self.imageCache queryDiskCacheForKey:key resultData:resultData done:^(UIImage *image, SDImageCacheType cacheType) {
         if (operation.isCancelled) {
             @synchronized (self.runningOperations) {
                 [self.runningOperations removeObject:operation];
@@ -178,6 +179,7 @@
             if (options & SDWebImageHandleCookies) downloaderOptions |= SDWebImageDownloaderHandleCookies;
             if (options & SDWebImageAllowInvalidSSLCertificates) downloaderOptions |= SDWebImageDownloaderAllowInvalidSSLCertificates;
             if (options & SDWebImageHighPriority) downloaderOptions |= SDWebImageDownloaderHighPriority;
+            if (options & SDWebImageNSDataResult) downloaderOptions |= SDWebImageDownloaderResultOnlyData;
             if (image && options & SDWebImageRefreshCached) {
                 // force progressive off if image already cached but forced refreshing
                 downloaderOptions &= ~SDWebImageDownloaderProgressiveDownload;
@@ -231,11 +233,9 @@
                                 [self.imageCache storeImage:transformedImage recalculateFromImage:imageWasTransformed imageData:(imageWasTransformed ? nil : data) forKey:key toDisk:cacheOnDisk];
                             }
 
-                            dispatch_main_sync_safe(^{
-                                if (strongOperation && !strongOperation.isCancelled) {
-                                    completedBlock(transformedImage, nil, SDImageCacheTypeNone, finished, url);
-                                }
-                            });
+                            if (strongOperation && !strongOperation.isCancelled) {
+                                completedBlock(transformedImage, nil, SDImageCacheTypeNone, finished, url);
+                            }
                         });
                     }
                     else {
@@ -243,11 +243,11 @@
                             [self.imageCache storeImage:downloadedImage recalculateFromImage:NO imageData:data forKey:key toDisk:cacheOnDisk];
                         }
 
-                        dispatch_main_sync_safe(^{
-                            if (strongOperation && !strongOperation.isCancelled) {
-                                completedBlock(downloadedImage, nil, SDImageCacheTypeNone, finished, url);
-                            }
-                        });
+                        if (strongOperation && !strongOperation.isCancelled) {
+                            BOOL isResultData = options & SDWebImageNSDataResult;
+                            id obj = isResultData ? data : downloadedImage;
+                            completedBlock(obj, nil, SDImageCacheTypeNone, finished, url);
+                        }
                     }
                 }
 

@@ -62,14 +62,16 @@ static char TAG_ACTIVITY_SHOW;
         id <SDWebImageOperation> operation = [SDWebImageManager.sharedManager downloadImageWithURL:url options:options progress:progressBlock completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
             [wself removeActivityIndicator];
             if (!wself) return;
+            
+            if (image && ((options & SDWebImageAvoidAutoSetImage) || (options & SDWebImageNSDataResult)) && completedBlock)
+            {
+                completedBlock(image, error, cacheType, url);
+                return;
+            }
+            
             dispatch_main_sync_safe(^{
                 if (!wself) return;
-                if (image && (options & SDWebImageAvoidAutoSetImage) && completedBlock)
-                {
-                    completedBlock(image, error, cacheType, url);
-                    return;
-                }
-                else if (image) {
+                if ([image isKindOfClass:[UIImage class]]) {
                     wself.image = image;
                     [wself setNeedsLayout];
                 } else {
@@ -203,10 +205,12 @@ static char TAG_ACTIVITY_SHOW;
 }
 
 - (void)removeActivityIndicator {
-    if (self.activityIndicator) {
-        [self.activityIndicator removeFromSuperview];
-        self.activityIndicator = nil;
-    }
+    dispatch_main_async_safe(^{
+        if (self.activityIndicator) {
+            [self.activityIndicator removeFromSuperview];
+            self.activityIndicator = nil;
+        }
+    });
 }
 
 @end
