@@ -394,9 +394,6 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
         doneBlock(nil, SDImageCacheTypeNone);
         return nil;
     }
-    if (isResultData) {
-        key = [key stringByAppendingString:@"_data"];
-    }
 
     // First check the in-memory cache...
     id image = [self imageFromMemoryCacheForKey:key];

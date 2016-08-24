@@ -150,6 +150,10 @@
         [self.runningOperations addObject:operation];
     }
     NSString *key = [self cacheKeyForURL:url];
+    
+    if (options & SDWebImageNSDataResult) {
+        key = [key stringByAppendingString:@"_data"];
+    }
 
     BOOL resultData = options & SDWebImageNSDataResult;
     operation.cacheOperation = [self.imageCache queryDiskCacheForKey:key resultData:resultData done:^(UIImage *image, SDImageCacheType cacheType) {
@@ -239,12 +243,15 @@
                         });
                     }
                     else {
+                        BOOL isResultData = options & SDWebImageNSDataResult;
                         if (downloadedImage && finished) {
                             [self.imageCache storeImage:downloadedImage recalculateFromImage:NO imageData:data forKey:key toDisk:cacheOnDisk];
+                        } else if (finished && data && isResultData) {
+                            [self.imageCache storeImageDataToDisk:data forKey:key];
                         }
 
+
                         if (strongOperation && !strongOperation.isCancelled) {
-                            BOOL isResultData = options & SDWebImageNSDataResult;
                             id obj = isResultData ? data : downloadedImage;
                             completedBlock(obj, nil, SDImageCacheTypeNone, finished, url);
                         }
@@ -271,12 +278,9 @@
             };
         }
         else if (image) {
-            dispatch_main_sync_safe(^{
-                __strong __typeof(weakOperation) strongOperation = weakOperation;
-                if (strongOperation && !strongOperation.isCancelled) {
-                    completedBlock(image, nil, cacheType, YES, url);
-                }
-            });
+            if (!operation.isCancelled) {
+                completedBlock(image, nil, cacheType, YES, url);
+            }
             @synchronized (self.runningOperations) {
                 [self.runningOperations removeObject:operation];
             }
